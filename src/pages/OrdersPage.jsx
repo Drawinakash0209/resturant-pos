@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import Navbar from '../components/Navbar'
+import Receipt from '../components/Receipt'
 import { supabase } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle2, Clock, UtensilsCrossed, RefreshCw, Pencil } from 'lucide-react'
+import { CheckCircle2, Clock, UtensilsCrossed, RefreshCw, Pencil, Printer } from 'lucide-react'
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [showClosed, setShowClosed] = useState(false)
-  const [closing, setClosing] = useState(null) // order id being closed
+  const [closing, setClosing] = useState(null)
+  const [reprintOrder, setReprintOrder] = useState(null)
   const navigate = useNavigate()
 
   const fetchOrders = useCallback(async () => {
@@ -120,17 +122,40 @@ export default function OrdersPage() {
                 order={order}
                 onClose={() => closeOrder(order.id)}
                 onEdit={() => navigate('/cashier', { state: { editOrder: order } })}
+                onReprint={() => setReprintOrder(order)}
                 isClosing={closing === order.id}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Reprint receipt modal */}
+      {reprintOrder && (() => {
+        const cart = reprintOrder.order_items.map(oi => ({
+          item: {
+            id: oi.menu_item_id,
+            name: oi.menu_items?.name ?? 'Item',
+            price: Number(oi.price_at_time),
+          },
+          qty: oi.quantity,
+        }))
+        return (
+          <Receipt
+            cart={cart}
+            total={Number(reprintOrder.total)}
+            tokenNumber={reprintOrder.token_number}
+            createdAt={reprintOrder.created_at}
+            reprintMode
+            onClose={() => setReprintOrder(null)}
+          />
+        )
+      })()}
     </div>
   )
 }
 
-function OrderCard({ order, onClose, onEdit, isClosing }) {
+function OrderCard({ order, onClose, onEdit, onReprint, isClosing }) {
   const isClosed = order.status === 'closed'
   const timeStr = new Date(order.created_at).toLocaleTimeString('en-IN', {
     hour: '2-digit',
@@ -190,31 +215,48 @@ function OrderCard({ order, onClose, onEdit, isClosing }) {
           <p className="text-xs text-slate-500">Total</p>
           <p className="text-slate-900 font-bold">Rs {Number(order.total).toFixed(2)}</p>
         </div>
-        {!isClosed && (
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          {isClosed ? (
             <button
-              onClick={onEdit}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-sm font-semibold transition-all"
+              onClick={onReprint}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 text-sm font-semibold transition-all"
             >
-              <Pencil className="w-4 h-4" />
-              <span className="hidden sm:inline">Edit</span>
+              <Printer className="w-4 h-4" />
+              <span className="hidden sm:inline">Reprint</span>
             </button>
-            <button
-              onClick={onClose}
-              disabled={isClosing}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-100 hover:bg-emerald-200 border border-emerald-200 text-emerald-700 text-sm font-semibold transition-all disabled:opacity-50"
-            >
-              {isClosing ? (
-                <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <CheckCircle2 className="w-4 h-4" />
-                  Close Order
-                </>
-              )}
-            </button>
-          </div>
-        )}
+          ) : (
+            <>
+              <button
+                onClick={onReprint}
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-500 transition-all"
+                title="Reprint receipt"
+              >
+                <Printer className="w-4 h-4" />
+              </button>
+              <button
+                onClick={onEdit}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-sm font-semibold transition-all"
+              >
+                <Pencil className="w-4 h-4" />
+                <span className="hidden sm:inline">Edit</span>
+              </button>
+              <button
+                onClick={onClose}
+                disabled={isClosing}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-100 hover:bg-emerald-200 border border-emerald-200 text-emerald-700 text-sm font-semibold transition-all disabled:opacity-50"
+              >
+                {isClosing ? (
+                  <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    Close Order
+                  </>
+                )}
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )

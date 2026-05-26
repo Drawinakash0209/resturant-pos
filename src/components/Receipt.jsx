@@ -5,22 +5,26 @@ const STALL_NAME = 'Yalla Wrap Grill'
 const STALL_TAGLINE = 'Wraps • Grills • Good Vibes'
 const CURRENCY = 'Rs'
 
-export default function Receipt({ cart, total, tokenNumber, onClose, onNewOrder }) {
-  const now = new Date()
-  const dateStr = now.toLocaleDateString('en-LK', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
+export default function Receipt({
+  cart,
+  total,
+  subtotal,
+  discountAmount = 0,
+  tokenNumber,
+  onClose,
+  onNewOrder,
+  reprintMode = false,
+  createdAt,
+}) {
+  const dateObj = createdAt ? new Date(createdAt) : new Date()
+  const dateStr = dateObj.toLocaleDateString('en-LK', {
+    year: 'numeric', month: 'long', day: 'numeric',
   })
-  const timeStr = now.toLocaleTimeString('en-LK', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
+  const timeStr = dateObj.toLocaleTimeString('en-LK', {
+    hour: '2-digit', minute: '2-digit', hour12: true,
   })
 
-  function handlePrint() {
-    window.print()
-  }
+  function handlePrint() { window.print() }
 
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape') onClose() }
@@ -38,7 +42,7 @@ export default function Receipt({ cart, total, tokenNumber, onClose, onNewOrder 
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
             <h2 className="font-semibold text-slate-900 flex items-center gap-2">
               <Printer className="w-4 h-4 text-blue-600" />
-              Bill
+              {reprintMode ? 'Reprint Bill' : 'Bill'}
             </h2>
             <button
               id="receipt-close-btn"
@@ -62,6 +66,8 @@ export default function Receipt({ cart, total, tokenNumber, onClose, onNewOrder 
             <BillBody
               cart={cart}
               total={total}
+              subtotal={subtotal}
+              discountAmount={discountAmount}
               tokenNumber={tokenNumber}
               dateStr={dateStr}
               timeStr={timeStr}
@@ -69,14 +75,24 @@ export default function Receipt({ cart, total, tokenNumber, onClose, onNewOrder 
           </div>
 
           <div className="flex gap-3 p-4 border-t border-slate-200">
-            <button
-              id="new-order-btn"
-              onClick={onNewOrder}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:text-slate-900 hover:border-zinc-600 transition-all text-sm"
-            >
-              <RotateCcw className="w-4 h-4" />
-              New Order
-            </button>
+            {reprintMode ? (
+              <button
+                onClick={onClose}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:text-slate-900 hover:border-zinc-600 transition-all text-sm"
+              >
+                <X className="w-4 h-4" />
+                Close
+              </button>
+            ) : (
+              <button
+                id="new-order-btn"
+                onClick={onNewOrder}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:text-slate-900 hover:border-zinc-600 transition-all text-sm"
+              >
+                <RotateCcw className="w-4 h-4" />
+                New Order
+              </button>
+            )}
             <button
               id="print-receipt-btn"
               onClick={handlePrint}
@@ -94,6 +110,8 @@ export default function Receipt({ cart, total, tokenNumber, onClose, onNewOrder 
         <BillBody
           cart={cart}
           total={total}
+          subtotal={subtotal}
+          discountAmount={discountAmount}
           tokenNumber={tokenNumber}
           dateStr={dateStr}
           timeStr={timeStr}
@@ -104,10 +122,13 @@ export default function Receipt({ cart, total, tokenNumber, onClose, onNewOrder 
   )
 }
 
-function BillBody({ cart, total, tokenNumber, dateStr, timeStr, printMode }) {
+function BillBody({ cart, total, subtotal, discountAmount = 0, tokenNumber, dateStr, timeStr, printMode }) {
   const cls = printMode
     ? { text: 'text-black', muted: 'text-gray-500', border: 'border-gray-300', tokenBg: 'bg-gray-900', tokenText: 'text-slate-900' }
     : { text: 'text-slate-900', muted: 'text-slate-500', border: 'border-slate-300', tokenBg: 'bg-slate-100', tokenText: 'text-slate-900' }
+
+  const showDiscount = discountAmount > 0
+  const billSubtotal = subtotal ?? total
 
   return (
     <div className="font-mono text-sm" id="bill-content">
@@ -164,10 +185,24 @@ function BillBody({ cart, total, tokenNumber, dateStr, timeStr, printMode }) {
 
       <div className={`border-t ${cls.border} my-3`} />
 
-      {/* Total */}
-      <div className={`flex justify-between font-bold text-base`}>
-        <span className={cls.text}>TOTAL</span>
-        <span className={printMode ? 'text-black' : 'text-blue-600'}>{CURRENCY} {total.toFixed(2)}</span>
+      {/* Totals */}
+      <div className="space-y-1.5">
+        {showDiscount && (
+          <>
+            <div className="flex justify-between text-xs">
+              <span className={cls.muted}>Subtotal</span>
+              <span className={cls.text}>{CURRENCY} {billSubtotal.toFixed(2)}</span>
+            </div>
+            <div className={`flex justify-between text-xs ${printMode ? 'text-gray-600' : 'text-red-500'}`}>
+              <span>Discount</span>
+              <span>− {CURRENCY} {discountAmount.toFixed(2)}</span>
+            </div>
+          </>
+        )}
+        <div className="flex justify-between font-bold text-base pt-0.5">
+          <span className={cls.text}>TOTAL</span>
+          <span className={printMode ? 'text-black' : 'text-blue-600'}>{CURRENCY} {total.toFixed(2)}</span>
+        </div>
       </div>
 
       <div className={`border-t ${cls.border} my-4`} />
